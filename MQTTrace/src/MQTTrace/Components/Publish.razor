@@ -1,0 +1,61 @@
+@inject IMqttService MqttService
+@implements IDisposable
+
+<div class="field">
+    <div class="control">
+        <input class="input" type="text" placeholder="Topic" @bind="Topic" />
+    </div>
+</div>
+<div class="field">
+    <div class="control">
+        <textarea class="textarea" placeholder="Payload" @bind="Payload" />
+    </div>
+</div>
+<div class="field">
+    <div class="control">
+        <button class="button is-primary @(Sending ? "is-loading" : "")" disabled="@(!Connected)" @onclick="PublishAsync">
+            Publish
+        </button>
+    </div>
+</div>
+
+@code
+{
+    public bool Connected { get; set; }
+
+    public string Topic { get; set; }
+
+    public string Payload { get; set; }
+
+    public bool Sending { get; set; }
+
+    protected override void OnInitialized()
+    {
+        Connected = MqttService.Connected;
+
+        MqttService.ConnectionStateChanged += HandleConnectionStateChanged;
+    }
+
+    private async Task HandleConnectionStateChanged()
+    {
+        await InvokeAsync(() =>
+        {
+            Connected = MqttService.Connected;
+            StateHasChanged();
+        });
+    }
+
+    public async Task PublishAsync()
+    {
+        Sending = true;
+
+        await MqttService.PublishAsync(Topic, Payload);
+
+        Sending = false;
+    }
+
+    public void Dispose()
+    {
+        MqttService.ConnectionStateChanged -= HandleConnectionStateChanged;
+    }
+}

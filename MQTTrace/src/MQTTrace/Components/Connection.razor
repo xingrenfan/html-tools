@@ -1,0 +1,88 @@
+@inject IMqttService MqttService
+@inject IUserSettingsService UserSettingsService
+@implements IDisposable
+
+<div class="field is-grouped">
+    <div class="control">
+        <div class="select">
+            <select @bind="SelectedConnectionProfileId">
+                @foreach (var connectionProfile in ConnectionProfiles)
+                {
+                    <option value="@connectionProfile.ConnectionProfileId">@connectionProfile.ProfileName</option>
+                }
+            </select>
+        </div>
+    </div>
+    <div class="control">
+        <button type="button" class="button is-primary @(Connecting ? "is-loading" : "")" disabled="@(Connected)" @onclick="ConnectAsync">Connect</button>
+    </div>
+    <div class="control">
+        <button type="button" class="button @(Disconnecting ? "is-loading" : "")" disabled="@(!Connected)" @onclick="DisconnectAsync">Disconnect</button>
+    </div>
+</div>
+
+@code {
+
+    public List<ConnectionProfile> ConnectionProfiles { get; set; }
+
+    public int SelectedConnectionProfileId { get; set; }
+
+    public bool Connecting { get; set; } = false;
+
+    public bool Disconnecting { get; set; } = false;
+
+    public bool Connected { get; set; }
+
+
+    protected override void OnInitialized()
+    {
+        Connected = MqttService.Connected;
+        ConnectionProfiles = UserSettingsService.GetConnectionProfiles();
+        SelectedConnectionProfileId = ConnectionProfiles[0].ConnectionProfileId;
+
+        MqttService.ConnectionStateChanged += HandleConnectionStateChanged;
+    }
+
+    private async Task HandleConnectionStateChanged()
+    {
+        await InvokeAsync(() =>
+        {
+            Connected = MqttService.Connected;
+            StateHasChanged();
+        });
+    }
+
+    public async Task ConnectAsync()
+    {
+        Connecting = true;
+
+        try
+        {
+            var selectedConnectionProfile = ConnectionProfiles.Find(p => p.ConnectionProfileId == SelectedConnectionProfileId);
+            await MqttService.ConnectAsync(selectedConnectionProfile.ClientOptions);
+        }
+        finally
+        {
+            Connecting = false;
+        }
+    }
+
+    public async Task DisconnectAsync()
+    {
+        Disconnecting = true;
+
+        try
+        {
+            await MqttService.DisconnectAsync();
+        }
+        finally
+        {
+            Disconnecting = false;
+        }
+    }
+
+    public void Dispose()
+    {
+        MqttService.ConnectionStateChanged -= HandleConnectionStateChanged;
+    }
+}
